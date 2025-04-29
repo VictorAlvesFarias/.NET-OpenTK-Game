@@ -95,6 +95,16 @@ namespace Client
 
             Program._udpClient.SendAsync(initRequest);
         }
+        protected override void OnResize(ResizeEventArgs e)
+        {
+            base.OnResize(e);
+
+            GL.Viewport(0, 0, e.Width, e.Height);
+            Width = e.Width;
+            Height = e.Height;
+
+            UpdateProjectionMatrix();
+        }
         protected override void OnRenderFrame(FrameEventArgs e)
         {
             base.OnRenderFrame(e);
