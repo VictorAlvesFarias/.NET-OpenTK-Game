@@ -24,7 +24,6 @@ namespace Server
                 {
                     case "movement":
                         var moveEvent = data.Data.GetData<HandleMoveEvent>();
-                        var player = _playerObject.FirstOrDefault(p => p.Id == moveEvent.PlayerId);
 
                         HandleMove(moveEvent.PlayerId, moveEvent.Event);
 
@@ -38,42 +37,26 @@ namespace Server
                         break;
 
                     case "requestInitPlayer":
-                        // Create new player for this client
                         var newPlayer = OnConnectionOpen();
 
-                        foreach (var client in _udpServer._connectedClients)
+                        var playerMsg = new UdpMessage()
                         {
-                            var playerMsg = new UdpMessage()
-                            {
-                                Type = "onConnectionOpened",
-                                Data = newPlayer.ToByte()
-                            };
+                            Type = "onConnectionOpened",
+                            Data = newPlayer.ToByte()
+                        };
 
-                            _udpServer.SendToAsync(playerMsg, client.Value);
+                        _udpServer.SendToAsync(playerMsg, sender);
 
-                            var mapMsg = new UdpMessage()
-                            {
-                                Type = "onInit",
-                                Data = _mapObjects.ToByte<List<Rectangle>>()
-                            };
+                        var mapMsg = new UdpMessage()
+                        {
+                            Type = "onInit",
+                            Data = _mapObjects.ToByte()
+                        };
 
-                            _udpServer.SendToAsync(mapMsg, client.Value);
-                        }
+                        _udpServer.SendToAsync(mapMsg, sender);
+                        
 
                         break;
-
-                    case "ping":
-                        foreach (var client in _udpServer._connectedClients)
-                        {
-                            var playerMsg = new UdpMessage()
-                            {
-                                Type = "ping",
-                                Data = []
-                            };
-
-                            _udpServer.SendToAsync(playerMsg, client.Value);
-                        }
-                            break;
                 }
             });
 
@@ -82,6 +65,7 @@ namespace Server
             _mapObjects.Add(new Platform(new Vector_2(0f, -0.6f), new Vector_2(1.0f, 0.1f)));
 
             _isRunning = true;
+
             StartLoop();
 
             while (true)

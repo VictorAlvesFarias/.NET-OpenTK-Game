@@ -9,10 +9,6 @@
       {
         "Path": "Server\\Server.csproj",
         "Action": "Start"
-      },
-      {
-        "Path": "Test\\Test.csproj",
-        "Action": "Start"
       }
     ]
   }
