@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
 using Kingdom_of_Creation.Comunication;
 using Kingdom_of_Creation.Dtos;
+using OpenTK.Compute.OpenCL;
 
 namespace Client
 {
@@ -65,35 +66,26 @@ namespace Client
             Program.GetShader().Use();
             Program.GetShader().SetMatrix4("projection", Projection);
 
-            Program._udpClient.Subscribe((data) =>
+            Program._udpClient.On<Player>("onConnectionOpened", data =>
             {
-                Console.WriteLine($"Received message of type: {data.Type}");
-
-                if (data.Type == "onConnectionOpened")
-                {
-                    PlayerObject = data.Data.GetData<Player>();
-
-                    Console.WriteLine($"Player initialized with ID: {PlayerObject.Id}");
-                }
-                else if (data.Type == "updatePlayers")
-                {
-                    var updatedPlayer = data.Data.GetData<List<Player>>();
-
-                    ConnectedPlayers = updatedPlayer;
-                }
-                else if (data.Type == "updateMap")
-                {
-                    MapObjects = data.Data.GetData<List<Rectangle>>();
-                }
+                PlayerObject = data;
+                Console.WriteLine($"Player initialized with ID: {PlayerObject.Id}");
+            });
+            Program._udpClient.On<List<Player>>("updatePlayers", data =>
+            {
+                ConnectedPlayers = data;
+            });
+            Program._udpClient.On<List<Rectangle>>("updateMap", data =>
+            {
+                Console.WriteLine(data);
+                MapObjects = data;
             });
 
-            var initRequest = new UdpMessage()
-            {
-                Type = "requestInitPlayer",
-                Data = Array.Empty<byte>()
-            };
+            Program._udpClient.Connect("127.0.0.1", 25565);
 
-            Program._udpClient.SendAsync(initRequest);
+            var initMessage = TcpMessage.FromObject("requestInitPlayer", null);
+
+            Program._udpClient.SendAsync(initMessage);
         }
         protected override void OnResize(ResizeEventArgs e)
         {
@@ -180,13 +172,7 @@ namespace Client
                 PlayerId = PlayerObject.Id
             };
 
-            var senderObject = new UdpMessage()
-            {
-                Data = movementEvent.ToByte(),
-                Type = "movement"
-            };
-
-            Program._udpClient.SendAsync(senderObject);
+            Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
         }
         protected override void OnKeyUp(KeyboardKeyEventArgs e)
         {
@@ -202,14 +188,7 @@ namespace Client
                     PlayerId = PlayerObject.Id
                 };
 
-                var senderObject = new UdpMessage()
-                {
-                    Data = movementEvent.ToByte(),
-                    Type = "movement"
-
-                };
-
-                Program._udpClient.SendAsync(senderObject);
+                Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
             }
         }
         protected override void OnMouseDown(MouseButtonEventArgs e)
@@ -218,23 +197,18 @@ namespace Client
 
             if (e.Button == MouseButton.Left && !_isDrawingPlatform)
             {
-                // Converte coordenadas de tela para coordenadas do mundo
-                Vector_2 mousePos = new Vector_2(MouseState.X, MouseState.Y);
-                Vector_2 screenSize = new Vector_2(Width, Height);
-
-                // Converte para coordenadas normalizadas (-1 a 1)
-                Vector_2 normalizedPos = new Vector_2(
+                var mousePos = new Vector_2(MouseState.X, MouseState.Y);
+                var screenSize = new Vector_2(Width, Height);
+                var normalizedPos = new Vector_2(
                     (mousePos.X / screenSize.X) * 2 - 1,
                     1 - (mousePos.Y / screenSize.Y) * 2
                 );
-
-                // Ajusta para o sistema de coordenadas do mundo
-                float aspectRatio = (float)Width / Height;
+                var aspectRatio = (float)Width / Height;
+                
                 PlataformToAddedPosition = new Vector_2(
                     normalizedPos.X * aspectRatio + _cameraOffset.X,
                     normalizedPos.Y + _cameraOffset.Y
                 );
-
                 _isDrawingPlatform = true;
                 _tempPlatform = new Rectangle(PlataformToAddedPosition, new Vector_2(), new Color_4(0.5f, 0.5f, 0.5f, 0.5f));
                 _tempPlatform.Initialize();
@@ -260,17 +234,14 @@ namespace Client
         }
         private (Vector_2 position, Vector_2 size) CalculatePlatformGeometry(Vector_2 startWorldPos, Vector_2 currentWorldPos)
         {
-            // Calcula o tamanho absoluto
             Vector_2 size = new Vector_2(
                 Math.Abs(currentWorldPos.X - startWorldPos.X),
                 Math.Abs(currentWorldPos.Y - startWorldPos.Y)
             );
 
-            // Aplica tamanho mínimo
             size.X = Math.Max(size.X, 0.1f);
             size.Y = Math.Max(size.Y, 0.1f);
 
-            // Calcula a posição correta (canto inferior esquerdo)
             Vector_2 position = new Vector_2(
                 Math.Min(startWorldPos.X, currentWorldPos.X),
                 Math.Min(startWorldPos.Y, currentWorldPos.Y)
@@ -298,16 +269,11 @@ namespace Client
             if (e.Button == MouseButton.Left && _isDrawingPlatform)
             {
                 Vector_2 currentWorldPos = ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
-                var (position, size) = CalculatePlatformGeometry(PlataformToAddedPosition, currentWorldPos);
 
-                // Enviar a nova plataforma para o servidor
+                var (position, size) = CalculatePlatformGeometry(PlataformToAddedPosition, currentWorldPos);
                 var platformData = new { Position = position, Size = size };
-                var message = new UdpMessage()
-                {
-                    Type = "createPlatform",
-                    Data = platformData.ToByte()
-                };
-                Program._udpClient.SendAsync(message);
+
+                Program._udpClient.SendAsync(TcpMessage.FromObject("createPlatform", platformData));
 
                 _isDrawingPlatform = false;
                 _tempPlatform = null;
@@ -326,7 +292,6 @@ namespace Client
             float bottomThreshold = Height * CameraFollowThreshold;
             float topThreshold = Height * (1 - CameraFollowThreshold);
 
-            // Acompanhamento horizontal
             if (playerScreenPos.X < leftThreshold)
             {
                 _cameraOffset.X -= (leftThreshold - playerScreenPos.X) / Width * aspectRatio * 2;
@@ -336,7 +301,6 @@ namespace Client
                 _cameraOffset.X += (playerScreenPos.X - rightThreshold) / Width * aspectRatio * 2;
             }
 
-            // Acompanhamento vertical
             if (playerScreenPos.Y < bottomThreshold)
             {
                 _cameraOffset.Y -= (bottomThreshold - playerScreenPos.Y) / Height * 2;

@@ -1,52 +1,51 @@
-﻿using Kingdom_of_Creation.Comunication;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+﻿
 
-public static class Program
+using Kingdom_of_Creation.Comunication;
+
+public class MyEventData
 {
-    public static UdpServerClient _udpClient = new UdpServerClient("189.123.70.20", 25565);
+    public string Message { get; set; }
+}
 
-    public static void Main()
+internal class Program
+{
+    private static async Task Main(string[] args)
     {
-        try
+        var server = new TcpServer(5000);
+
+        server.On<MyEventData>("my-event", async (data, client) =>
         {
-            _udpClient.Subscribe(data =>
+            Console.WriteLine($"[Servidor] Recebido: {data.Message}");
+
+            var resposta = TcpMessage.FromObject("server-response", new MyEventData
             {
-                Console.WriteLine($"Received message of type: {data.Type}");
+                Message = "Mensagem recebida com sucesso!"
             });
 
+            await server.SendAsync(resposta, client);
+        });
 
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
-            _udpClient.SendAsync(new UdpMessage() { Type = "ping", Data = [] });
 
-            while (true)
-            {
-                
-            }
-        }
-		catch (Exception)
-		{
+        _ = Task.Run(() => server.StartAsync());
 
-			throw;
-		}
+        await Task.Delay(500);
+
+        var client = new TcpClient();
+
+        client.On<MyEventData>("server-response", data =>
+        {
+            Console.WriteLine($"[Cliente] Resposta do servidor: {data.Message}");
+        });
+
+        client.Connect("127.0.0.1", 5000);
+
+        var mensagem = TcpMessage.FromObject("my-event", new MyEventData
+        {
+            Message = "Olá servidor!"
+        });
+
+        await client.SendAsync(mensagem);
+
+        Console.ReadLine();
     }
 }

@@ -12,52 +12,35 @@ namespace Server
         public static List<Player> _playerObject = new();
         public static List<Rectangle> _mapObjects = new();
         private static bool _isRunning = false;
-        public static UdpServer _udpServer = new UdpServer(25565);
+        public static TcpServer _udpServer = new TcpServer(25565);
 
-        public static void Main()
+        public static async Task Main(string[] args)
         {
-            _udpServer.Subscribe(async (data, sender) =>
+            Console.WriteLine("- Starting game server");
+
+            _udpServer.On<HandleMoveEvent>("movement", async (data, client) =>
             {
-                Console.WriteLine(data.Type);
+                Console.WriteLine("[Server]: movement");
 
-                switch (data.Type)
-                {
-                    case "movement":
-                        var moveEvent = data.Data.GetData<HandleMoveEvent>();
+                HandleMove(data.PlayerId, data.Event);
+            });
+            _udpServer.On<Platform>("createPlatform", async (data, client) =>
+            {
+                Console.WriteLine("[Server]: createPlatform");
 
-                        HandleMove(moveEvent.PlayerId, moveEvent.Event);
+                CreatePlatform(data.Position, data.Size);
+            });
+            _udpServer.On<object>("requestInitPlayer", async (_, client) =>
+            {
+                Console.WriteLine("[Server]: requestInitPlayer");
 
-                        break;
+                var newPlayer = OnConnectionOpen();
 
-                    case "createPlatform":
-                        var platformData = data.Data.GetData<Platform>();
-                        
-                        CreatePlatform(platformData.Position, platformData.Size);
-                        
-                        break;
+                var playerMsg = TcpMessage.FromObject("onConnectionOpened", newPlayer);
+                await _udpServer.SendAsync(playerMsg, client);
 
-                    case "requestInitPlayer":
-                        var newPlayer = OnConnectionOpen();
-
-                        var playerMsg = new UdpMessage()
-                        {
-                            Type = "onConnectionOpened",
-                            Data = newPlayer.ToByte()
-                        };
-
-                        _udpServer.SendToAsync(playerMsg, sender);
-
-                        var mapMsg = new UdpMessage()
-                        {
-                            Type = "onInit",
-                            Data = _mapObjects.ToByte()
-                        };
-
-                        _udpServer.SendToAsync(mapMsg, sender);
-                        
-
-                        break;
-                }
+                var mapMsg = TcpMessage.FromObject("onInit", _mapObjects);
+                await _udpServer.SendAsync(mapMsg, client);
             });
 
             _mapObjects.Add(new Platform(new Vector_2(-0.5f, -0.5f), new Vector_2(5.0f, 0.1f)));
@@ -65,55 +48,39 @@ namespace Server
             _mapObjects.Add(new Platform(new Vector_2(0f, -0.6f), new Vector_2(1.0f, 0.1f)));
 
             _isRunning = true;
+            
+            Console.WriteLine("- Starting server");
 
-            StartLoop();
+            _ = Task.Run(() => _udpServer.StartAsync());
 
-            while (true)
-            {
-                Thread.Sleep(1000);
-            }
+            await StartLoop();
         }
-        private static void StartLoop()
+        private static async Task StartLoop()
         {
-            var thread = new Thread(() =>
+            Console.WriteLine("- Starting loop");
+
+            var stopwatch = new Stopwatch();
+            var lastTime = stopwatch.ElapsedMilliseconds;
+         
+            stopwatch.Start();
+
+            while (_isRunning)
             {
-                var stopwatch = new Stopwatch();
-                stopwatch.Start();
+                Console.WriteLine("- Running");
 
-                long lastTime = stopwatch.ElapsedMilliseconds;
+                long currentTime = stopwatch.ElapsedMilliseconds;
+                float deltaTime = (currentTime - lastTime) / 1000f;
+                deltaTime = Math.Min(deltaTime, 0.1f);
+                lastTime = currentTime;
 
-                while (_isRunning)
-                {
-                    long currentTime = stopwatch.ElapsedMilliseconds;
-                    float deltaTime = (currentTime - lastTime) / 1000f;
-                    deltaTime = Math.Min(deltaTime, 0.1f);
-                    lastTime = currentTime;
+                Process(deltaTime);
 
-                    Process(deltaTime);
+                var players = TcpMessage.FromObject("updatePlayers", _playerObject);
+                var map = TcpMessage.FromObject("updateMap", _mapObjects);
 
-                    var players = new UdpMessage()
-                    {
-                        Type = "updatePlayers",
-                        Data = _playerObject.ToByte()
-                    };
-                    var platforms = new UdpMessage()
-                    {
-                        Type = "updateMap",
-                        Data = _mapObjects.ToByte()
-                    };
-
-                    foreach (var client in _udpServer._connectedClients)
-                    {
-                        _udpServer.SendToAsync(platforms, client.Value);
-                        _udpServer.SendToAsync(players, client.Value);
-                    }
-
-                    Thread.Sleep(1);
-                }
-            });
-
-            thread.IsBackground = true;
-            thread.Start();
+                await _udpServer.BroadcastAsync(players);
+                await _udpServer.BroadcastAsync(map);
+            }
         }
         private static void Process(float deltaTime)
         {
@@ -129,7 +96,6 @@ namespace Server
 
                 Physics.ResolveColision(player.Velocity, player, deltaTime,_mapObjects);
             });
-
         }
         public static void HandleMove(Guid playerId, PlayerEvents keyboardState)
         {

@@ -1,10 +1,11 @@
 ﻿using Client;
 using Kingdom_of_Creation.Comunication;
+using OpenTK.Compute.OpenCL;
 
 public static class Program
 {
     public static Shader ShaderObject = new Shader("./Assets/Shaders/shader.vert", "./Assets/Shaders/shader.frag");
-    public static UdpServerClient _udpClient = new UdpServerClient("127.0.0.1", 25565 );
+    public static TcpClient _udpClient = new TcpClient();
 
     public static void Main()
     {
