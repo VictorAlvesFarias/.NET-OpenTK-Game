@@ -11,6 +11,7 @@ namespace Kingdom_of_Creation.Enums
         Left = 0,
         Right = 1,
         Jump = 2,
-        Stop = 3
+        Stop = 3,
+        Reset = 4
     }
 }

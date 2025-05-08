@@ -22,7 +22,7 @@ namespace Server
             {
                 Console.WriteLine("[Server]: movement");
 
-                HandleMove(data.PlayerId, data.Event);
+                HandlePlayerEvents(data.PlayerId, data.Event);
             });
             _udpServer.On<Platform>("createPlatform", async (data, client) =>
             {
@@ -97,7 +97,7 @@ namespace Server
                 Physics.ResolveColision(player.Velocity, player, deltaTime,_mapObjects);
             });
         }
-        public static void HandleMove(Guid playerId, PlayerEvents keyboardState)
+        public static void HandlePlayerEvents(Guid playerId, PlayerEvents keyboardState)
         {
             var player = _playerObject.Find(e => e.Id == playerId);
 
@@ -125,6 +125,11 @@ namespace Server
             if (keyboardState == PlayerEvents.Stop)
             {
                 player.Velocity = new Vector_2(0, player.Velocity.Y);
+            }
+
+            if (keyboardState == PlayerEvents.Reset)
+            {
+                player.Position = new Vector_2(0, 0);
             }
         }
         public static Player OnConnectionOpen()

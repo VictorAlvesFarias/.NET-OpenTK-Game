@@ -151,20 +151,25 @@ namespace Client
 
             if (KeyboardState.IsKeyDown(Keys.W) || KeyboardState.IsKeyDown(Keys.Up))
             {
-                SendMovementEvent(PlayerEvents.Jump);
+                SendPlayerEvent(PlayerEvents.Jump);
             }
 
             if (KeyboardState.IsKeyDown(Keys.A) || KeyboardState.IsKeyDown(Keys.Left))
             {
-                SendMovementEvent(PlayerEvents.Left);
+                SendPlayerEvent(PlayerEvents.Left);
             }
 
             if (KeyboardState.IsKeyDown(Keys.D) || KeyboardState.IsKeyDown(Keys.Right))
             {
-                SendMovementEvent(PlayerEvents.Right);
+                SendPlayerEvent(PlayerEvents.Right);
+            }
+
+            if (KeyboardState.IsKeyDown(Keys.F5))
+            {
+                SendPlayerEvent(PlayerEvents.Reset);
             }
         }
-        private void SendMovementEvent(PlayerEvents playerEvent)
+        private void SendPlayerEvent(PlayerEvents playerEvent)
         {
             var movementEvent = new HandleMoveEvent()
             {
