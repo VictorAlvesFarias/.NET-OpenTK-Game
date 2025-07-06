@@ -9,5 +9,6 @@ namespace Client.Context.Camera.Implements
         public Vector_2 PlataformToAddedPosition { get; set; }
         public RenderObject TempPlatform { get; set; }
         public bool IsDrawingPlatform  { get; set; }
+        public Player PlayerObject { get; set; }
     }
 }

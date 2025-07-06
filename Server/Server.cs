@@ -3,6 +3,7 @@ using Kingdom_of_Creation.Definitions;
 using Kingdom_of_Creation.Dtos;
 using Kingdom_of_Creation.Entities.Implements;
 using Kingdom_of_Creation.Enums;
+using Kingdom_of_Creation.Physics;
 using Server.Context.Camera.Implements;
 using System.Diagnostics;
 
@@ -10,7 +11,14 @@ namespace Server
 {
     public class ServerApplication
     {
-        private readonly GameContext _gameContext = new();
+        private readonly GameContext _gameContext;
+        private readonly Physics _physics;
+
+        public ServerApplication()
+        {
+            _gameContext = new GameContext();
+            _physics = new Physics();
+        }
 
         public async Task InitializeAsync()
         {
@@ -22,7 +30,6 @@ namespace Server
             _ = Task.Run(() => Program.UdpServer.StartAsync());
             await StartLoop();
         }
-
         private void RegisterEvents()
         {
             Program.UdpServer.On<HandleMoveEvent>("movement", async (data, client) =>
@@ -46,7 +53,6 @@ namespace Server
                 await Program.UdpServer.SendAsync(mapMsg, client);
             });
         }
-
         private void InitializeMap()
         {
             var initPlatforms = new List<RenderObject>()
@@ -58,7 +64,6 @@ namespace Server
 
             _gameContext.MapObjects.AddRange(initPlatforms);
         }
-
         private async Task StartLoop()
         {
             var stopwatch = new Stopwatch();
@@ -82,7 +87,6 @@ namespace Server
                 await Program.UdpServer.BroadcastAsync(map);
             }
         }
-
         private void Process(float deltaTime)
         {
             float gravity = -9.8f;
@@ -92,7 +96,6 @@ namespace Server
                 Physics.ResolveColision(obj, deltaTime, _gameContext.MapObjects.ToList(), gravity);
             });
         }
-
         private void HandlePlayerEvents(Guid playerId, PlayerEvents keyboardState)
         {
             var player = _gameContext.ConnectedPlayers.Find(e => e.Id == playerId);
@@ -122,7 +125,6 @@ namespace Server
                 renderObjectPlayer.Position = new Vector_2(0, 0);
             }
         }
-
         private Player OnConnectionOpen()
         {
 
@@ -134,7 +136,6 @@ namespace Server
 
             return player;
         }
-
         private void CreatePlatform(Vector_2 position, Vector_2 size)
         {
             var platform = new RenderObject()

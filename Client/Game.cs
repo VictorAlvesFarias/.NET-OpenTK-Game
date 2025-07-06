@@ -14,10 +14,9 @@ namespace Client
 {
     public class Game : GameWindow
     {
-        private Player _playerObject { get; set; }
-        private CameraContext _cameraContext { get; init; }
-        private GameContext _gameContext { get; init; } 
-        private RenderServiceFactory _renderServiceFactory { get; init; }
+        private readonly CameraContext _cameraContext;
+        private readonly GameContext _gameContext;
+        private readonly RenderServiceFactory _renderServiceFactory;
 
         public Game(int width, int height, string title) : base(GameWindowSettings.Default, new NativeWindowSettings() { Size = (width, height), Title = title })
         {
@@ -45,7 +44,7 @@ namespace Client
             Program._udpClient.On<Player>("onConnectionOpened", data =>
             {
                 _gameContext.ConnectedPlayers.Add(data);
-                _playerObject = _gameContext.ConnectedPlayers.First(e=> e.Id == data.Id);
+                _gameContext.PlayerObject = _gameContext.ConnectedPlayers.First(e=> e.Id == data.Id);
             });
             Program._udpClient.On<List<Player>>("updatePlayers", data =>
             {
@@ -105,9 +104,9 @@ namespace Client
         {
             base.OnUpdateFrame(args);
 
-            if (_playerObject == null) return;
+            if (_gameContext.PlayerObject == null) return;
 
-            var playerObject = _gameContext.MapObjects.FirstOrDefault(e => e.Id == _playerObject.RenderObjectId);
+            var playerObject = _gameContext.MapObjects.FirstOrDefault(e => e.Id == _gameContext.PlayerObject.RenderObjectId);
 
             if (playerObject == null) return;
 
@@ -137,14 +136,14 @@ namespace Client
         {
             base.OnKeyUp(e);
 
-            if (_playerObject == null) return;
+            if (_gameContext.PlayerObject == null) return;
 
             if (e.Key == Keys.A || e.Key == Keys.Left || e.Key == Keys.D || e.Key == Keys.Right)
             {
                 var movementEvent = new HandleMoveEvent()
                 {
                     Event = PlayerEvents.Stop,
-                    PlayerId = _playerObject.Id
+                    PlayerId = _gameContext.PlayerObject.Id
                 };
 
                 Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
@@ -201,7 +200,7 @@ namespace Client
             var movementEvent = new HandleMoveEvent()
             {
                 Event = playerEvent,
-                PlayerId = _playerObject.Id
+                PlayerId = _gameContext.PlayerObject.Id
             };
 
             Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
