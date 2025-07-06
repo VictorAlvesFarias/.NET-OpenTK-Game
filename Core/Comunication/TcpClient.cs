@@ -36,19 +36,15 @@ namespace Kingdom_of_Creation.Comunication
 
         private async Task ReceiveLoop()
         {
-            try
+            while (!_cts.Token.IsCancellationRequested)
             {
-                while (!_cts.Token.IsCancellationRequested)
+                var message = await TcpMessage.FromStreamAsync(_stream);
+                if (_handlers.TryGetValue(message.Type, out var handlers))
                 {
-                    var message = await TcpMessage.FromStreamAsync(_stream);
-                    if (_handlers.TryGetValue(message.Type, out var handlers))
-                    {
-                        foreach (var h in handlers)
-                            h(message.DataJson);
-                    }
+                    foreach (var h in handlers)
+                        h(message.DataJson);
                 }
             }
-            catch { }
         }
 
         public async Task SendAsync(TcpMessage message)

@@ -65,6 +65,7 @@ namespace Kingdom_of_Creation.Comunication
             catch { }
             finally
             {
+
                 _clients.TryRemove(client, out _);
                 client.Close();
             }

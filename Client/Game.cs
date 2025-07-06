@@ -1,84 +1,59 @@
-﻿using Kingdom_of_Creation.Entities;
-using Kingdom_of_Creation.Enums;
-using Kingdom_of_Creation;
-using OpenTK.Mathematics;
+﻿using Kingdom_of_Creation.Enums;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
 using Kingdom_of_Creation.Comunication;
 using Kingdom_of_Creation.Dtos;
-using OpenTK.Compute.OpenCL;
+using Client.Context.Camera.Implements;
+using Client.Extensions;
+using Kingdom_of_Creation.Entities.Implements;
+using Client.Services.Renders.Factories;
 
 namespace Client
 {
     public class Game : GameWindow
     {
-        private Player PlayerObject;
-        private List<Rectangle> MapObjects = new();
-        private List<Player> ConnectedPlayers = new();
-        private Matrix4 Projection;
-        private int Width;
-        private int Height;
-        private Vector_2 _cameraOffset = new();
-        private bool WindowActive;
-        private float CameraFollowThreshold = 0.3f;
-        private Vector_2 PlataformToAddedPosition = new();
-        private Rectangle _tempPlatform;
-        private bool _isDrawingPlatform = false;
+        private Player _playerObject { get; set; }
+        private CameraContext _cameraContext { get; init; }
+        private GameContext _gameContext { get; init; } 
+        private RenderServiceFactory _renderServiceFactory { get; init; }
 
         public Game(int width, int height, string title) : base(GameWindowSettings.Default, new NativeWindowSettings() { Size = (width, height), Title = title })
         {
             base.OnLoad();
 
-            Width = width;
-            Height = height;
+            _cameraContext = new CameraContext(width, height, new Vector_2(0, 0), 0.3f, false);
+            _gameContext = new GameContext();
+            _renderServiceFactory = new RenderServiceFactory();
         }
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
         {
             base.OnFocusedChanged(e);
 
-            WindowActive = e.IsFocused;
+            _cameraContext.WindowActive = e.IsFocused;
         }
         protected override void OnLoad()
         {
             base.OnLoad();
 
-            float aspectRatio = (float)Width / Height;
-
             GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
-            Projection = Matrix4.CreateOrthographicOffCenter(
-                -aspectRatio,
-                aspectRatio,
-                -1f,
-                1f,
-                -1f,
-                1f
-            );
-
-            Program.GetShader().Use();
-            Program.GetShader().SetMatrix4("projection", Projection);
+            _cameraContext.UpdateProjectionMatrix();
 
             Program._udpClient.On<Player>("onConnectionOpened", data =>
             {
-                PlayerObject = data;
-                Console.WriteLine($"Player initialized with ID: {PlayerObject.Id}");
+                _gameContext.ConnectedPlayers.Add(data);
+                _playerObject = _gameContext.ConnectedPlayers.First(e=> e.Id == data.Id);
             });
             Program._udpClient.On<List<Player>>("updatePlayers", data =>
             {
-                ConnectedPlayers = data;
+                _gameContext.ConnectedPlayers = data;
             });
-            Program._udpClient.On<List<Rectangle>>("updateMap", data =>
+            Program._udpClient.On<List<RenderObject>>("updateMap", data =>
             {
-                Console.WriteLine(data);
-                MapObjects = data;
+                _gameContext.MapObjects = data;
             });
 
             Program._udpClient.Connect("127.0.0.1", 25565);
@@ -92,51 +67,36 @@ namespace Client
             base.OnResize(e);
 
             GL.Viewport(0, 0, e.Width, e.Height);
-            Width = e.Width;
-            Height = e.Height;
 
-            UpdateProjectionMatrix();
+            _cameraContext.UpdateWindowSize(e.Width, e.Height);
         }
         protected override void OnRenderFrame(FrameEventArgs e)
-        {
+        {;
             base.OnRenderFrame(e);
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
             Program.GetShader().Use();
 
-            foreach (var obj in MapObjects)
+            foreach (var obj in _gameContext.MapObjects)
             {
-                if (obj.Initialized == false)
-                {
-                    obj.Initialize();
-                }
-
-                obj.Draw();
-            }
-
-            foreach (var obj in ConnectedPlayers)
-            {
-                if (obj.Id == PlayerObject.Id)
-                {
-                    PlayerObject = obj;
-                }
+                var renderService = _renderServiceFactory.GetRenderService(obj);
 
                 if (obj.Initialized == false)
                 {
-                    obj.Initialize();
+                    renderService.Initialize(obj);
                 }
 
-                obj.Draw();
+                renderService.Draw(obj);
             }
 
-            if (_isDrawingPlatform && _tempPlatform != null)
+            if (_gameContext.IsDrawingPlatform && _gameContext.TempPlatform != null)
             {
-                Vector_2 currentWorldPos = ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
-                var (position, size) = CalculatePlatformGeometry(PlataformToAddedPosition, currentWorldPos);
+                var renderService = _renderServiceFactory.GetRenderService(_gameContext.TempPlatform);
 
-                _tempPlatform.Position = position;
-                _tempPlatform.Size = size;
-                _tempPlatform.Draw();
+                Vector_2 currentWorldPos = _cameraContext.ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
+
+                _gameContext.TempPlatform.CalculatePlatformGeometry(_gameContext.PlataformToAddedPosition, currentWorldPos);
+                renderService.Draw(_gameContext.TempPlatform);
             }
 
             SwapBuffers();
@@ -145,9 +105,13 @@ namespace Client
         {
             base.OnUpdateFrame(args);
 
-            if (PlayerObject == null) return;
+            if (_playerObject == null) return;
 
-            UpdateCameraPosition();
+            var playerObject = _gameContext.MapObjects.FirstOrDefault(e => e.Id == _playerObject.RenderObjectId);
+
+            if (playerObject == null) return;
+
+            _cameraContext.UpdateCameraPosition(playerObject.Position);
 
             if (KeyboardState.IsKeyDown(Keys.W) || KeyboardState.IsKeyDown(Keys.Up))
             {
@@ -169,28 +133,18 @@ namespace Client
                 SendPlayerEvent(PlayerEvents.Reset);
             }
         }
-        private void SendPlayerEvent(PlayerEvents playerEvent)
-        {
-            var movementEvent = new HandleMoveEvent()
-            {
-                Event = playerEvent,
-                PlayerId = PlayerObject.Id
-            };
-
-            Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
-        }
         protected override void OnKeyUp(KeyboardKeyEventArgs e)
         {
             base.OnKeyUp(e);
 
-            if (PlayerObject == null) return;
+            if (_playerObject == null) return;
 
             if (e.Key == Keys.A || e.Key == Keys.Left || e.Key == Keys.D || e.Key == Keys.Right)
             {
                 var movementEvent = new HandleMoveEvent()
                 {
                     Event = PlayerEvents.Stop,
-                    PlayerId = PlayerObject.Id
+                    PlayerId = _playerObject.Id
                 };
 
                 Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
@@ -200,130 +154,57 @@ namespace Client
         {
             base.OnMouseDown(e);
 
-            if (e.Button == MouseButton.Left && !_isDrawingPlatform)
+            if (e.Button == MouseButton.Left && !_gameContext.IsDrawingPlatform)
             {
                 var mousePos = new Vector_2(MouseState.X, MouseState.Y);
-                var screenSize = new Vector_2(Width, Height);
+                var screenSize = new Vector_2(_cameraContext.Width, _cameraContext.Height);
                 var normalizedPos = new Vector_2(
                     (mousePos.X / screenSize.X) * 2 - 1,
                     1 - (mousePos.Y / screenSize.Y) * 2
                 );
-                var aspectRatio = (float)Width / Height;
+                var aspectRatio = _cameraContext.GetAspectRatio();
                 
-                PlataformToAddedPosition = new Vector_2(
-                    normalizedPos.X * aspectRatio + _cameraOffset.X,
-                    normalizedPos.Y + _cameraOffset.Y
+                _gameContext.PlataformToAddedPosition = new Vector_2(
+                    normalizedPos.X * aspectRatio + _cameraContext.CameraOffset.X,
+                    normalizedPos.Y + _cameraContext.CameraOffset.Y
                 );
-                _isDrawingPlatform = true;
-                _tempPlatform = new Rectangle(PlataformToAddedPosition, new Vector_2(), new Color_4(0.5f, 0.5f, 0.5f, 0.5f));
-                _tempPlatform.Initialize();
+                _gameContext.IsDrawingPlatform = true;
+                _gameContext.TempPlatform = new RenderObject() {
+                    Position = _gameContext.PlataformToAddedPosition, 
+                    Size = new Vector_2(), 
+                    Color = new Color_4(0.5f, 0.5f, 0.5f, 0.5f)
+                };
 
-                Console.WriteLine($"Platform start position: {PlataformToAddedPosition}");
+                var renderService = _renderServiceFactory.GetRenderService(_gameContext.TempPlatform);
+
+                renderService.Initialize(_gameContext.TempPlatform);
             }
-        }
-        private void UpdateProjectionMatrix()
-        {
-            float aspectRatio = (float)Width / Height;
-
-            Projection = Matrix4.CreateOrthographicOffCenter(
-                -aspectRatio + _cameraOffset.X,
-                aspectRatio + _cameraOffset.X,
-                -1f + _cameraOffset.Y,
-                1f + _cameraOffset.Y,
-                -1f,
-                1f
-            );
-
-            Program.GetShader().Use();
-            Program.GetShader().SetMatrix4("projection", Projection);
-        }
-        private (Vector_2 position, Vector_2 size) CalculatePlatformGeometry(Vector_2 startWorldPos, Vector_2 currentWorldPos)
-        {
-            Vector_2 size = new Vector_2(
-                Math.Abs(currentWorldPos.X - startWorldPos.X),
-                Math.Abs(currentWorldPos.Y - startWorldPos.Y)
-            );
-
-            size.X = Math.Max(size.X, 0.1f);
-            size.Y = Math.Max(size.Y, 0.1f);
-
-            Vector_2 position = new Vector_2(
-                Math.Min(startWorldPos.X, currentWorldPos.X),
-                Math.Min(startWorldPos.Y, currentWorldPos.Y)
-            );
-
-            return (position, size);
-        }
-        private Vector_2 ScreenToWorld(Vector_2 screenPos)
-        {
-            float aspectRatio = (float)Width / Height;
-            Vector_2 normalizedPos = new Vector_2(
-                (screenPos.X / Width) * 2 - 1,
-                1 - (screenPos.Y / Height) * 2
-            );
-
-            return new Vector_2(
-                normalizedPos.X * aspectRatio + _cameraOffset.X,
-                normalizedPos.Y + _cameraOffset.Y
-            );
         }
         protected override void OnMouseUp(MouseButtonEventArgs e)
         {
             base.OnMouseUp(e);
 
-            if (e.Button == MouseButton.Left && _isDrawingPlatform)
+            if (e.Button == MouseButton.Left && _gameContext.IsDrawingPlatform)
             {
-                Vector_2 currentWorldPos = ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
+                Vector_2 currentWorldPos = _cameraContext.ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
 
-                var (position, size) = CalculatePlatformGeometry(PlataformToAddedPosition, currentWorldPos);
-                var platformData = new { Position = position, Size = size };
+                _gameContext.TempPlatform.CalculatePlatformGeometry(_gameContext.PlataformToAddedPosition, currentWorldPos);
 
-                Program._udpClient.SendAsync(TcpMessage.FromObject("createPlatform", platformData));
+                Program._udpClient.SendAsync(TcpMessage.FromObject("createPlatform", _gameContext.TempPlatform));
 
-                _isDrawingPlatform = false;
-                _tempPlatform = null;
+                _gameContext.IsDrawingPlatform = false;
+                _gameContext.TempPlatform = null;
             }
         }
-        private void UpdateCameraPosition()
+        private void SendPlayerEvent(PlayerEvents playerEvent)
         {
-            if (PlayerObject == null) return;
-
-            float aspectRatio = (float)Width / Height;
-            Vector_2 playerScreenPos = WorldToScreen(PlayerObject.Position);
-
-            float leftThreshold = Width * CameraFollowThreshold;
-            float rightThreshold = Width * (1 - CameraFollowThreshold);
-
-            float bottomThreshold = Height * CameraFollowThreshold;
-            float topThreshold = Height * (1 - CameraFollowThreshold);
-
-            if (playerScreenPos.X < leftThreshold)
+            var movementEvent = new HandleMoveEvent()
             {
-                _cameraOffset.X -= (leftThreshold - playerScreenPos.X) / Width * aspectRatio * 2;
-            }
-            else if (playerScreenPos.X > rightThreshold)
-            {
-                _cameraOffset.X += (playerScreenPos.X - rightThreshold) / Width * aspectRatio * 2;
-            }
+                Event = playerEvent,
+                PlayerId = _playerObject.Id
+            };
 
-            if (playerScreenPos.Y < bottomThreshold)
-            {
-                _cameraOffset.Y -= (bottomThreshold - playerScreenPos.Y) / Height * 2;
-            }
-            else if (playerScreenPos.Y > topThreshold)
-            {
-                _cameraOffset.Y += (playerScreenPos.Y - topThreshold) / Height * 2;
-            }
-
-            UpdateProjectionMatrix();
-        }
-        private Vector_2 WorldToScreen(Vector_2 worldPos)
-        {
-            float aspectRatio = (float)Width / Height;
-            return new Vector_2(
-                (worldPos.X - _cameraOffset.X + aspectRatio) * Width / (2 * aspectRatio),
-                (worldPos.Y - _cameraOffset.Y + 1) * Height / 2
-            );
+            Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
         }
     }
 }

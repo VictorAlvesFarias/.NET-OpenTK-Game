@@ -1,6 +1,5 @@
 ﻿using Client;
 using Kingdom_of_Creation.Comunication;
-using OpenTK.Compute.OpenCL;
 
 public static class Program
 {

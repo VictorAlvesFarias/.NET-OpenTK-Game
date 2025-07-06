@@ -1,73 +1,73 @@
 ﻿using Kingdom_of_Creation.Comunication;
+using Kingdom_of_Creation.Definitions;
 using Kingdom_of_Creation.Dtos;
-using Kingdom_of_Creation.Entities;
+using Kingdom_of_Creation.Entities.Implements;
 using Kingdom_of_Creation.Enums;
-using OpenTK.Compute.OpenCL;
+using Server.Context.Camera.Implements;
 using System.Diagnostics;
 
 namespace Server
 {
-    public static class ServerApplication
+    public class ServerApplication
     {
-        public static List<Player> _playerObject = new();
-        public static List<Rectangle> _mapObjects = new();
-        private static bool _isRunning = false;
-        public static TcpServer _udpServer = new TcpServer(25565);
+        private readonly GameContext _gameContext = new();
 
-        public static async Task Main(string[] args)
+        public async Task InitializeAsync()
         {
-            Console.WriteLine("- Starting game server");
+            RegisterEvents();
+            InitializeMap();
 
-            _udpServer.On<HandleMoveEvent>("movement", async (data, client) =>
+            Program.IsRunning = true;
+
+            _ = Task.Run(() => Program.UdpServer.StartAsync());
+            await StartLoop();
+        }
+
+        private void RegisterEvents()
+        {
+            Program.UdpServer.On<HandleMoveEvent>("movement", async (data, client) =>
             {
-                Console.WriteLine("[Server]: movement");
-
                 HandlePlayerEvents(data.PlayerId, data.Event);
             });
-            _udpServer.On<Platform>("createPlatform", async (data, client) =>
-            {
-                Console.WriteLine("[Server]: createPlatform");
 
+            Program.UdpServer.On<RenderObject>("createPlatform", async (data, client) =>
+            {
                 CreatePlatform(data.Position, data.Size);
             });
-            _udpServer.On<object>("requestInitPlayer", async (_, client) =>
-            {
-                Console.WriteLine("[Server]: requestInitPlayer");
 
+            Program.UdpServer.On<object>("requestInitPlayer", async (_, client) =>
+            {
                 var newPlayer = OnConnectionOpen();
 
                 var playerMsg = TcpMessage.FromObject("onConnectionOpened", newPlayer);
-                await _udpServer.SendAsync(playerMsg, client);
+                await Program.UdpServer.SendAsync(playerMsg, client);
 
-                var mapMsg = TcpMessage.FromObject("onInit", _mapObjects);
-                await _udpServer.SendAsync(mapMsg, client);
+                var mapMsg = TcpMessage.FromObject("onInit", _gameContext.MapObjects);
+                await Program.UdpServer.SendAsync(mapMsg, client);
             });
-
-            _mapObjects.Add(new Platform(new Vector_2(-0.5f, -0.5f), new Vector_2(5.0f, 0.1f)));
-            _mapObjects.Add(new Platform(new Vector_2(-0.8f, -0.8f), new Vector_2(1.0f, 0.1f)));
-            _mapObjects.Add(new Platform(new Vector_2(0f, -0.6f), new Vector_2(1.0f, 0.1f)));
-
-            _isRunning = true;
-            
-            Console.WriteLine("- Starting server");
-
-            _ = Task.Run(() => _udpServer.StartAsync());
-
-            await StartLoop();
         }
-        private static async Task StartLoop()
-        {
-            Console.WriteLine("- Starting loop");
 
+        private void InitializeMap()
+        {
+            var initPlatforms = new List<RenderObject>()
+            {
+                new RenderObject() { Static = true, Position = new Vector_2(-0.5f, -0.5f), Size = new Vector_2(5.0f, 0.1f) },
+                new RenderObject() { Static = true, Position = new Vector_2(-0.8f, -0.8f), Size = new Vector_2(1.0f, 0.1f) },
+                new RenderObject() { Static = true, Position = new Vector_2(0f, -0.6f), Size = new Vector_2(1.0f, 0.1f) }
+            };
+
+            _gameContext.MapObjects.AddRange(initPlatforms);
+        }
+
+        private async Task StartLoop()
+        {
             var stopwatch = new Stopwatch();
             var lastTime = stopwatch.ElapsedMilliseconds;
-         
+
             stopwatch.Start();
 
-            while (_isRunning)
+            while (Program.IsRunning)
             {
-                Console.WriteLine("- Running");
-
                 long currentTime = stopwatch.ElapsedMilliseconds;
                 float deltaTime = (currentTime - lastTime) / 1000f;
                 deltaTime = Math.Min(deltaTime, 0.1f);
@@ -75,76 +75,76 @@ namespace Server
 
                 Process(deltaTime);
 
-                var players = TcpMessage.FromObject("updatePlayers", _playerObject);
-                var map = TcpMessage.FromObject("updateMap", _mapObjects);
+                var players = TcpMessage.FromObject("updatePlayers", _gameContext.ConnectedPlayers);
+                var map = TcpMessage.FromObject("updateMap", _gameContext.MapObjects);
 
-                await _udpServer.BroadcastAsync(players);
-                await _udpServer.BroadcastAsync(map);
+                await Program.UdpServer.BroadcastAsync(players);
+                await Program.UdpServer.BroadcastAsync(map);
             }
         }
-        private static void Process(float deltaTime)
+
+        private void Process(float deltaTime)
         {
             float gravity = -9.8f;
-
-            _playerObject.ForEach((player) =>
+            
+            _gameContext.MapObjects.ToList().ForEach(obj =>
             {
-
-                if (!player.IsGrounded)
-                {
-                    player.Velocity = new Vector_2(player.Velocity.X, player.Velocity.Y + gravity * deltaTime );
-                }
-
-                Physics.ResolveColision(player.Velocity, player, deltaTime,_mapObjects);
+                Physics.ResolveColision(obj, deltaTime, _gameContext.MapObjects.ToList(), gravity);
             });
         }
-        public static void HandlePlayerEvents(Guid playerId, PlayerEvents keyboardState)
+
+        private void HandlePlayerEvents(Guid playerId, PlayerEvents keyboardState)
         {
-            var player = _playerObject.Find(e => e.Id == playerId);
+            var player = _gameContext.ConnectedPlayers.Find(e => e.Id == playerId);
+            var renderObjectPlayer = _gameContext.MapObjects.Find(e => e.Id == player?.RenderObjectId);
+
+            if (player == null) return;
 
             if (keyboardState == PlayerEvents.Jump && player.IsGrounded)
             {
-                player.Velocity = new Vector_2(player.Velocity.X, player.JumpForce);
-
-                Console.WriteLine("Jump");
+                renderObjectPlayer.Velocity = new Vector_2(renderObjectPlayer.Velocity.X, renderObjectPlayer.Speed.Y);
+                player.IsGrounded = false;
             }
-
-            if (keyboardState == PlayerEvents.Left)
+            else if (keyboardState == PlayerEvents.Left)
             {
-                player.Velocity = new Vector_2(-player.Speed, player.Velocity.Y);
-
-                Console.WriteLine("Left");
+                renderObjectPlayer.Velocity = new Vector_2(-renderObjectPlayer.Speed.X, renderObjectPlayer.Velocity.Y);
             }
-
-            if (keyboardState == PlayerEvents.Right)
+            else if (keyboardState == PlayerEvents.Right)
             {
-                player.Velocity = new Vector_2(player.Speed , player.Velocity.Y);
-            
-                Console.WriteLine("Right");
+                renderObjectPlayer.Velocity = new Vector_2(renderObjectPlayer.Speed.X, renderObjectPlayer.Velocity.Y);
             }
-
-            if (keyboardState == PlayerEvents.Stop)
+            else if (keyboardState == PlayerEvents.Stop)
             {
-                player.Velocity = new Vector_2(0, player.Velocity.Y);
+                renderObjectPlayer.Velocity = new Vector_2(0, renderObjectPlayer.Velocity.Y);
             }
-
-            if (keyboardState == PlayerEvents.Reset)
+            else if (keyboardState == PlayerEvents.Reset)
             {
-                player.Position = new Vector_2(0, 0);
+                renderObjectPlayer.Position = new Vector_2(0, 0);
             }
         }
-        public static Player OnConnectionOpen()
+
+        private Player OnConnectionOpen()
         {
-            var player = new Player(new Vector_2(0, 0), new Vector_2(0.2f, 0.2f), 4f, 2f, Guid.NewGuid());
-            
-            _playerObject.Add(player);
+
+            var player = new Player();
+            var obj = player.CreateRenderObject();  
+
+            _gameContext.ConnectedPlayers.Add(player);
+            _gameContext.MapObjects.Add(obj);
 
             return player;
         }
-        public static void CreatePlatform(Vector_2 position, Vector_2 size)
+
+        private void CreatePlatform(Vector_2 position, Vector_2 size)
         {
-            Console.WriteLine(position);
-            Console.WriteLine(size);
-            _mapObjects.Add(new Platform(position, size));
+            var platform = new RenderObject()
+            {
+                Position = position,
+                Size = size,
+                EntityShape = EntityShape.Circle,
+            };
+
+            _gameContext.MapObjects.Add(platform);
         }
     }
 }
