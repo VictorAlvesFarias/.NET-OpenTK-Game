@@ -16,6 +16,5 @@ namespace Kingdom_of_Creation.Entities.Implements
         public Vector_2 Speed { get; set; } = new Vector_2();
         public bool Static { get; set; }
         public Guid Id { get; set; } = Guid.NewGuid();
-        [JsonIgnore] public Action<RenderObject, CollisionManifold> ColisionEventAction { get; set; } = (renderObject, manifold) => { };
     }
 }

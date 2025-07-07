@@ -129,7 +129,15 @@ namespace Server
         {
 
             var player = new Player();
-            var obj = player.CreateRenderObject();  
+            var obj = player.CreateRenderObject();
+
+            _physics.ColisionEvents.Add(obj.Id, (renderObject, bot) =>
+            {
+                if (bot.HasCollision && bot.Normal.Y < 0.5f)
+                {
+                    player.IsGrounded = true;
+                }
+            });
 
             _gameContext.ConnectedPlayers.Add(player);
             _gameContext.MapObjects.Add(obj);
@@ -142,7 +150,7 @@ namespace Server
             {
                 Position = position,
                 Size = size,
-                EntityShape = EntityShape.Rectangle,
+                EntityShape = EntityShape.Circle,
             };
 
             _gameContext.MapObjects.Add(platform);

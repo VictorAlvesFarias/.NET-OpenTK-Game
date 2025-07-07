@@ -20,18 +20,11 @@ namespace Kingdom_of_Creation.Entities.Implements
         {
             var renderObject = new RenderObject()
             {
-                ColisionEventAction = (renderObject, bot) =>
-                {
-                    if (bot.HasCollision && bot.Normal.Y < 0.5f)
-                    {
-                        IsGrounded = true;
-                    }
-                },
                 Position = new Vector_2(0, 0),
                 Size = new Vector_2(0.2f, 0.2f),
                 Speed = new Vector_2(4f, 4f),
                 Id = Guid.NewGuid(),
-                EntityShape = EntityShape.Rectangle,
+                EntityShape = EntityShape.Traiangle,
                 Color = ColorDefinitions.White
             };
 

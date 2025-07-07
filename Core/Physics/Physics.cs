@@ -2,12 +2,17 @@
 using Kingdom_of_Creation.Entities.Implements;
 using Kingdom_of_Creation.Services.RenderObjectService.Factories;
 
-
 namespace Kingdom_of_Creation.Physics
 {
     public class Physics
     {
-        public readonly RenderObjectFactory _renderObjectFactory = new RenderObjectFactory();
+        private readonly RenderObjectFactory _renderObjectFactory;
+        public Dictionary<Guid,Action<RenderObject, CollisionManifold>> ColisionEvents { get; set; }
+
+        public Physics() {
+            _renderObjectFactory = new RenderObjectFactory();
+            ColisionEvents = new Dictionary<Guid, Action<RenderObject, CollisionManifold>>();
+        }
 
         public bool CheckCollision(RenderObject objA, RenderObject objB)
         {
@@ -99,9 +104,8 @@ namespace Kingdom_of_Creation.Physics
         {
             var velocity = renderObject.Velocity;
             var applyGravity = true;
-
-            // Primeiro tenta mover no eixo X
             var futurePosX = renderObject.Position + new Vector_2(velocity.X * deltaTime, 0);
+            
             renderObject.Position = futurePosX;
 
             foreach (var other in allObjects)
@@ -118,13 +122,12 @@ namespace Kingdom_of_Creation.Physics
                         velocity.X = 0;
                 }
 
-                renderObject.ColisionEventAction.Invoke(other, manifold);
+                ColisionEvents.GetValueOrDefault(renderObject.Id)?.Invoke(other, manifold);
             }
 
-            // Depois tenta mover no eixo Y
             var futurePosY = renderObject.Position + new Vector_2(0, velocity.Y * deltaTime);
-            renderObject.Position = futurePosY;
 
+            renderObject.Position = futurePosY;
 
             foreach (var other in allObjects)
             {
@@ -143,7 +146,7 @@ namespace Kingdom_of_Creation.Physics
                     }
                 }
 
-                renderObject.ColisionEventAction.Invoke(other, manifold);
+                ColisionEvents.GetValueOrDefault(renderObject.Id)?.Invoke(other, manifold);
             }
 
             if (applyGravity && !renderObject.Static)
