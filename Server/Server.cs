@@ -93,7 +93,7 @@ namespace Server
             
             _gameContext.MapObjects.ToList().ForEach(obj =>
             {
-                Physics.ResolveColision(obj, deltaTime, _gameContext.MapObjects.ToList(), gravity);
+                _physics.ResolveColision(obj, deltaTime, _gameContext.MapObjects.ToList(), gravity);
             });
         }
         private void HandlePlayerEvents(Guid playerId, PlayerEvents keyboardState)
@@ -142,7 +142,7 @@ namespace Server
             {
                 Position = position,
                 Size = size,
-                EntityShape = EntityShape.Circle,
+                EntityShape = EntityShape.Rectangle,
             };
 
             _gameContext.MapObjects.Add(platform);

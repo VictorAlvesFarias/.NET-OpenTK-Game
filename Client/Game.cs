@@ -80,11 +80,6 @@ namespace Client
             {
                 var renderService = _renderServiceFactory.GetRenderService(obj);
 
-                if (obj.Initialized == false)
-                {
-                    renderService.Initialize(obj);
-                }
-
                 renderService.Draw(obj);
             }
 
@@ -175,8 +170,6 @@ namespace Client
                 };
 
                 var renderService = _renderServiceFactory.GetRenderService(_gameContext.TempPlatform);
-
-                renderService.Initialize(_gameContext.TempPlatform);
             }
         }
         protected override void OnMouseUp(MouseButtonEventArgs e)

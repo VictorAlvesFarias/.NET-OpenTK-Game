@@ -10,7 +10,6 @@ namespace Client.Services.Renders
     public interface IRenderService
     {
         void Draw(RenderObject renderObject);
-        void Initialize(RenderObject renderObject);
         void UpdateBuffers(RenderObject renderObject);
     }
 }

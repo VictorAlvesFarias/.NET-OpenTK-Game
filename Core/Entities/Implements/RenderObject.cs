@@ -9,10 +9,7 @@ namespace Kingdom_of_Creation.Entities.Implements
     public class RenderObject
     {
         public EntityShape EntityShape { get; set; } = EntityShape.Rectangle;
-        public int VertexArrayObject { get; set; }
-        public int VertexBufferObject { get; set; }
         public Color_4 Color { get; set; } = ColorDefinitions.Gray;
-        public bool Initialized { get; set; }
         public Vector_2 Position { get; set; } = new Vector_2();
         public Vector_2 Size { get; set; } = new Vector_2();
         public Vector_2 Velocity { get; set; } = new Vector_2();
