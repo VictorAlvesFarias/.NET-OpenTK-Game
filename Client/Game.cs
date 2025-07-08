@@ -8,7 +8,8 @@ using Kingdom_of_Creation.Dtos;
 using Client.Context.Camera.Implements;
 using Client.Extensions;
 using Kingdom_of_Creation.Entities.Implements;
-using Client.Services.Renders.Factories;
+using Kingdom_of_Creation.Services.RenderObjectService.Factories;
+using Client.Services;
 
 namespace Client
 {
@@ -16,7 +17,8 @@ namespace Client
     {
         private readonly CameraContext _cameraContext;
         private readonly GameContext _gameContext;
-        private readonly RenderServiceFactory _renderServiceFactory;
+        private readonly RenderObjectServiceFactory _renderObjectServiceFactory;
+        private readonly RenderService _renderService;
 
         public Game(int width, int height, string title) : base(GameWindowSettings.Default, new NativeWindowSettings() { Size = (width, height), Title = title })
         {
@@ -24,7 +26,8 @@ namespace Client
 
             _cameraContext = new CameraContext(width, height, new Vector_2(0, 0), 0.3f, false);
             _gameContext = new GameContext();
-            _renderServiceFactory = new RenderServiceFactory();
+            _renderObjectServiceFactory = new RenderObjectServiceFactory();
+            _renderService = new RenderService();
         }
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
@@ -78,19 +81,28 @@ namespace Client
 
             foreach (var obj in _gameContext.MapObjects)
             {
-                var renderService = _renderServiceFactory.GetRenderService(obj);
+                var renderObjectService = _renderObjectServiceFactory.GetRenderService(obj);
 
-                renderService.Draw(obj);
+                _renderService.Draw(
+                    renderObjectService.GetVertices(obj),
+                    obj.Color,
+                    renderObjectService.GetPrimitiveType()
+                );
             }
 
             if (_gameContext.IsDrawingPlatform && _gameContext.TempPlatform != null)
             {
-                var renderService = _renderServiceFactory.GetRenderService(_gameContext.TempPlatform);
+                var renderObjectService = _renderObjectServiceFactory.GetRenderService(_gameContext.TempPlatform);
 
                 Vector_2 currentWorldPos = _cameraContext.ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
 
                 _gameContext.TempPlatform.CalculatePlatformGeometry(_gameContext.PlataformToAddedPosition, currentWorldPos);
-                renderService.Draw(_gameContext.TempPlatform);
+               
+                _renderService.Draw(
+                    renderObjectService.GetVertices(_gameContext.TempPlatform),
+                    _gameContext.TempPlatform.Color,
+                    renderObjectService.GetPrimitiveType()
+                );
             }
 
             SwapBuffers();
@@ -169,7 +181,7 @@ namespace Client
                     Color = new Color_4(0.5f, 0.5f, 0.5f, 0.5f)
                 };
 
-                var renderService = _renderServiceFactory.GetRenderService(_gameContext.TempPlatform);
+                var renderObjectService = _renderObjectServiceFactory.GetRenderService(_gameContext.TempPlatform);
             }
         }
         protected override void OnMouseUp(MouseButtonEventArgs e)

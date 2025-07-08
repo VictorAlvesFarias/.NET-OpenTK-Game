@@ -1,40 +1,31 @@
-﻿using Client.Services.Renders;
-using Kingdom_of_Creation.Entities.Implements;
-using Kingdom_of_Creation.Services.EntityGeometry;
+﻿using Kingdom_of_Creation.Definitions;
+using Kingdom_of_Creation.Dtos;
 using OpenTK.Graphics.OpenGL4;
 
 namespace Client.Services
 {
-    public class RenderService : IRenderService
+    public class RenderService 
     {
-        private IRenderObjectService _renderObjectService { get; init; }
         private int _vertexBufferObject { get; set; }
         private int _vertexArrayObject { get; set; }
-        public RenderService(IRenderObjectService renderObjectService)
+        public RenderService()
         {
-            _renderObjectService = renderObjectService;
             _vertexBufferObject = GL.GenBuffer();
             _vertexArrayObject = GL.GenVertexArray();
         }
 
-        public virtual void Draw(RenderObject renderObject)
+        public virtual void Draw(float[] vertices, Color_4 color, PrimitiveType primitive)
         {
-            if (renderObject == null)
-                return;
-
-            UpdateBuffers(renderObject);
-            Program.GetShader().SetColor4("objectColor", renderObject.Color);
+            UpdateBuffers(vertices);
+            Program.GetShader().SetColor4("objectColor", color ?? ColorDefinitions.White);
             GL.BindVertexArray(_vertexArrayObject);
-            GL.DrawArrays(_renderObjectService.GetPrimitiveType(), 0, _renderObjectService.GetVertices(renderObject).Length / 3);
+            GL.DrawArrays(primitive, 0, vertices.Length / 3);
         }
-        public virtual void UpdateBuffers(RenderObject renderObject)
+        public virtual void UpdateBuffers(float[] vertices)
         {
-            if (renderObject == null)
-                return;
-
             GL.BindVertexArray(_vertexArrayObject);
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, _renderObjectService.GetVertices(renderObject).Length * sizeof(float), _renderObjectService.GetVertices(renderObject), BufferUsageHint.DynamicDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.DynamicDraw);
 
             GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
             GL.EnableVertexAttribArray(0);

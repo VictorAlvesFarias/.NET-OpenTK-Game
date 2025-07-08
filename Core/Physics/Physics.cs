@@ -6,11 +6,11 @@ namespace Kingdom_of_Creation.Physics
 {
     public class Physics
     {
-        private readonly RenderObjectFactory _renderObjectFactory;
+        private readonly RenderObjectServiceFactory _renderObjectFactory;
         public Dictionary<Guid,Action<RenderObject, CollisionManifold>> ColisionEvents { get; set; }
 
         public Physics() {
-            _renderObjectFactory = new RenderObjectFactory();
+            _renderObjectFactory = new RenderObjectServiceFactory();
             ColisionEvents = new Dictionary<Guid, Action<RenderObject, CollisionManifold>>();
         }
 

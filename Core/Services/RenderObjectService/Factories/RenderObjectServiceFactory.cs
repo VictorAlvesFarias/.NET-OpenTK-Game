@@ -7,12 +7,12 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace Kingdom_of_Creation.Services.RenderObjectService.Factories
 {
-    public class RenderObjectFactory 
+    public class RenderObjectServiceFactory 
     {
         private CircleService _circleService { get; init; }
         private TriangleService _triangleService { get; init; }
         private RectangleService _rectangleService { get; init; }
-        public RenderObjectFactory()
+        public RenderObjectServiceFactory()
         {
             _circleService = new CircleService();
             _triangleService = new TriangleService();
