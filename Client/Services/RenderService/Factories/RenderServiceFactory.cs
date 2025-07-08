@@ -1,31 +1,24 @@
-﻿using Client.Services.Renders;
-using Client.Services.Renders.Implements;
-using Kingdom_of_Creation.Entities.Implements;
+﻿using Kingdom_of_Creation.Entities.Implements;
 using Kingdom_of_Creation.Enums;
 using Kingdom_of_Creation.Services.RenderObjectService.Implements;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Client.Services.Renders.Factories
 {
     public class RenderServiceFactory 
     {
-        private RectangleRenderService _rectangleRenderer { get; init; }
-        private TriangleRenderService _triangleRenderer { get; init; }
-        private CircleRenderService _circleRenderer { get; init; }
+        private RenderService _rectangleRenderer { get; init; }
+        private RenderService _triangleRenderer { get; init; }
+        private RenderService _circleRenderer { get; init; }
 
         public RenderServiceFactory()
         {
-            _rectangleRenderer = new RectangleRenderService(
+            _rectangleRenderer = new RenderService(
                 new RectangleService()
             );
-            _triangleRenderer = new TriangleRenderService(
+            _triangleRenderer = new RenderService(
                 new TriangleService()
             );
-            _circleRenderer = new CircleRenderService(
+            _circleRenderer = new RenderService(
                 new CircleService()
             );
         }
