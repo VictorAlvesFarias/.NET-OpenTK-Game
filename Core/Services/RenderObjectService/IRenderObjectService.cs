@@ -12,7 +12,9 @@ namespace Kingdom_of_Creation.Services.EntityGeometry
     public interface IRenderObjectService
     {
         float[] GetVertices(RenderObject renderObject);
+        IEnumerable<Vector_2> GetAxes(List<Vector_2> vertices);
         PrimitiveType GetPrimitiveType();
         List<Vector_2> GetVerticesList(RenderObject renderObject);
+        (float min, float max) Project(List<Vector_2> vertices, Vector_2 axis);
     }
 }

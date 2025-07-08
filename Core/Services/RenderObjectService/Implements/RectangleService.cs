@@ -1,12 +1,13 @@
 ﻿using Kingdom_of_Creation.Dtos;
 using Kingdom_of_Creation.Entities.Implements;
 using Kingdom_of_Creation.Services.EntityGeometry;
+using Kingdom_of_Creation.Services.RenderObjectService.Abstract;
 using OpenTK.Graphics.OpenGL4;
 using System.Drawing;
 
 namespace Kingdom_of_Creation.Services.RenderObjectService.Implements
 {
-    public class RectangleService : IRenderObjectService
+    public class RectangleService : RenderObjectServiceAbstract, IRenderObjectService
     {
         public float[] GetVertices(RenderObject renderObject)
         {

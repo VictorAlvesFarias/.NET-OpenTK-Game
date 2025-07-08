@@ -105,20 +105,21 @@ namespace Server
 
             if (keyboardState == PlayerEvents.Jump && player.IsGrounded)
             {
-                renderObjectPlayer.Velocity = new Vector_2(renderObjectPlayer.Velocity.X, renderObjectPlayer.Speed.Y);
+                _physics.ApplyVelocity(renderObjectPlayer, new Vector_2(renderObjectPlayer.Velocity.X, renderObjectPlayer.Speed.Y));
+
                 player.IsGrounded = false;
             }
             else if (keyboardState == PlayerEvents.Left)
             {
-                renderObjectPlayer.Velocity = new Vector_2(-renderObjectPlayer.Speed.X, renderObjectPlayer.Velocity.Y);
+                _physics.ApplyVelocity(renderObjectPlayer, new Vector_2(-renderObjectPlayer.Speed.X, renderObjectPlayer.Velocity.Y));
             }
             else if (keyboardState == PlayerEvents.Right)
             {
-                renderObjectPlayer.Velocity = new Vector_2(renderObjectPlayer.Speed.X, renderObjectPlayer.Velocity.Y);
+                _physics.ApplyVelocity(renderObjectPlayer, new Vector_2(renderObjectPlayer.Speed.X, renderObjectPlayer.Velocity.Y));
             }
             else if (keyboardState == PlayerEvents.Stop)
             {
-                renderObjectPlayer.Velocity = new Vector_2(0, renderObjectPlayer.Velocity.Y);
+                _physics.ApplyVelocity(renderObjectPlayer, new Vector_2(0, renderObjectPlayer.Velocity.Y));
             }
             else if (keyboardState == PlayerEvents.Reset)
             {

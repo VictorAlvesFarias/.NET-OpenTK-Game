@@ -16,14 +16,13 @@ namespace Kingdom_of_Creation.Physics
 
         public bool CheckCollision(RenderObject objA, RenderObject objB)
         {
-            var renderObjectService = _renderObjectFactory.GetRenderService(objA);
-            var vertsA = renderObjectService.GetVerticesList(objA);
-            var vertsB = renderObjectService.GetVerticesList(objB);
+            var vertsA = _renderObjectFactory.GetRenderService(objA).GetVerticesList(objA);
+            var vertsB = _renderObjectFactory.GetRenderService(objB).GetVerticesList(objB);
 
-            foreach (var axis in GetAxes(vertsA).Concat(GetAxes(vertsB)))
+            foreach (var axis in _renderObjectFactory.GetRenderService(objA).GetAxes(vertsA).Concat(_renderObjectFactory.GetRenderService(objB).GetAxes(vertsB)))
             {
-                var (minA, maxA) = Project(vertsA, axis);
-                var (minB, maxB) = Project(vertsB, axis);
+                var (minA, maxA) = _renderObjectFactory.GetRenderService(objB).Project(vertsA, axis);
+                var (minB, maxB) = _renderObjectFactory.GetRenderService(objB).Project(vertsB, axis);
 
                 if (maxA < minB || maxB < minA)
                 {
@@ -33,35 +32,6 @@ namespace Kingdom_of_Creation.Physics
 
             return true; // nenhuma separação → colisão
         }
-        private IEnumerable<Vector_2> GetAxes(List<Vector_2> vertices)
-        {
-            for (int i = 0; i < vertices.Count; i++)
-            {
-                var p1 = vertices[i];
-                var p2 = vertices[(i + 1) % vertices.Count];
-                var edge = new Vector_2(p2.X - p1.X, p2.Y - p1.Y);
-                var normal = new Vector_2(-edge.Y, edge.X);
-                var length = (float)Math.Sqrt(normal.X * normal.X + normal.Y * normal.Y);
-                yield return new Vector_2(normal.X / length, normal.Y / length);
-            }
-        }
-        private (float min, float max) Project(List<Vector_2> vertices, Vector_2 axis)
-        {
-            float min = Dot(vertices[0], axis);
-            float max = min;
-
-            foreach (var v in vertices)
-            {
-                float proj = Dot(v, axis);
-                if (proj < min) min = proj;
-                if (proj > max) max = proj;
-            }
-            return (min, max);
-        }
-        private float Dot(Vector_2 a, Vector_2 b)
-        {
-            return a.X * b.X + a.Y * b.Y;
-        }
         public CollisionManifold CheckCollisionManifold(RenderObject objA, RenderObject objB)
         {
             var vertsA = _renderObjectFactory.GetRenderService(objA).GetVerticesList(objA);
@@ -70,10 +40,10 @@ namespace Kingdom_of_Creation.Physics
             float minPenetration = float.MaxValue;
             Vector_2 smallestAxis = new Vector_2();
 
-            foreach (var axis in GetAxes(vertsA).Concat(GetAxes(vertsB)))
+            foreach (var axis in _renderObjectFactory.GetRenderService(objA).GetAxes(vertsA).Concat(_renderObjectFactory.GetRenderService(objB).GetAxes(vertsB)))
             {
-                var (minA, maxA) = Project(vertsA, axis);
-                var (minB, maxB) = Project(vertsB, axis);
+                var (minA, maxA) = _renderObjectFactory.GetRenderService(objA).Project(vertsA, axis);
+                var (minB, maxB) = _renderObjectFactory.GetRenderService(objB).Project(vertsB, axis);
 
                 if (maxA < minB || maxB < minA)
                 {
@@ -90,7 +60,7 @@ namespace Kingdom_of_Creation.Physics
 
             // Direção do vetor normal tem que apontar para fora do objA
             var direction = objB.Position - objA.Position;
-            if (Dot(direction, smallestAxis) < 0)
+            if (direction.Dot(smallestAxis) < 0)
                 smallestAxis = new Vector_2(-smallestAxis.X, -smallestAxis.Y);
 
             return new CollisionManifold
@@ -153,6 +123,10 @@ namespace Kingdom_of_Creation.Physics
                 velocity.Y += gravity * deltaTime;
 
             renderObject.Velocity = velocity;
+        }
+        public void ApplyVelocity(RenderObject renderObject, Vector_2 newVelocity)
+        {
+            renderObject.Velocity = newVelocity;
         }
     }
 }
