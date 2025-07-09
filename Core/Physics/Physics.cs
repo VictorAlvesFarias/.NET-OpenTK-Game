@@ -1,28 +1,26 @@
 ﻿using Kingdom_of_Creation.Dtos;
 using Kingdom_of_Creation.Entities.Implements;
-using Kingdom_of_Creation.Services.RenderObjectService.Factories;
+using Kingdom_of_Creation.Extensions;
 
 namespace Kingdom_of_Creation.Physics
 {
     public class Physics
     {
-        private readonly RenderObjectServiceFactory _renderObjectFactory;
         public Dictionary<Guid,Action<RenderObject, CollisionManifold>> ColisionEvents { get; set; }
 
         public Physics() {
-            _renderObjectFactory = new RenderObjectServiceFactory();
             ColisionEvents = new Dictionary<Guid, Action<RenderObject, CollisionManifold>>();
         }
 
         public bool CheckCollision(RenderObject objA, RenderObject objB)
         {
-            var vertsA = _renderObjectFactory.GetRenderService(objA).GetVerticesList(objA);
-            var vertsB = _renderObjectFactory.GetRenderService(objB).GetVerticesList(objB);
+            var vertsA = objA.GetVerticesList();
+            var vertsB = objB.GetVerticesList();
 
-            foreach (var axis in _renderObjectFactory.GetRenderService(objA).GetAxes(vertsA).Concat(_renderObjectFactory.GetRenderService(objB).GetAxes(vertsB)))
+            foreach (var axis in vertsA.GetAxes().Concat(vertsB.GetAxes()))
             {
-                var (minA, maxA) = _renderObjectFactory.GetRenderService(objB).Project(vertsA, axis);
-                var (minB, maxB) = _renderObjectFactory.GetRenderService(objB).Project(vertsB, axis);
+                var (minA, maxA) = vertsA.Project(axis);
+                var (minB, maxB) = vertsB.Project(axis);
 
                 if (maxA < minB || maxB < minA)
                 {
@@ -34,16 +32,16 @@ namespace Kingdom_of_Creation.Physics
         }
         public CollisionManifold CheckCollisionManifold(RenderObject objA, RenderObject objB)
         {
-            var vertsA = _renderObjectFactory.GetRenderService(objA).GetVerticesList(objA);
-            var vertsB = _renderObjectFactory.GetRenderService(objB).GetVerticesList(objB);
+            var vertsA = objA.GetVerticesList();
+            var vertsB = objB.GetVerticesList();
 
             float minPenetration = float.MaxValue;
             Vector_2 smallestAxis = new Vector_2();
 
-            foreach (var axis in _renderObjectFactory.GetRenderService(objA).GetAxes(vertsA).Concat(_renderObjectFactory.GetRenderService(objB).GetAxes(vertsB)))
+            foreach (var axis in vertsA.GetAxes().Concat(vertsB.GetAxes()))
             {
-                var (minA, maxA) = _renderObjectFactory.GetRenderService(objA).Project(vertsA, axis);
-                var (minB, maxB) = _renderObjectFactory.GetRenderService(objB).Project(vertsB, axis);
+                var (minA, maxA) = vertsA.Project(axis);
+                var (minB, maxB) = vertsB.Project(axis);
 
                 if (maxA < minB || maxB < minA)
                 {

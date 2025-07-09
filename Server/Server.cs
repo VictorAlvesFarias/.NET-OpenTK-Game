@@ -4,6 +4,8 @@ using Kingdom_of_Creation.Dtos;
 using Kingdom_of_Creation.Entities.Implements;
 using Kingdom_of_Creation.Enums;
 using Kingdom_of_Creation.Physics;
+using Kingdom_of_Creation.Services.PolygonService.Implements;
+using OpenTK.Graphics.OpenGL4;
 using Server.Context.Camera.Implements;
 using System.Diagnostics;
 
@@ -13,11 +15,13 @@ namespace Server
     {
         private readonly GameContext _gameContext;
         private readonly Physics _physics;
+        private readonly PolygonService _polygonService;
 
         public ServerApplication()
         {
             _gameContext = new GameContext();
             _physics = new Physics();
+            _polygonService = new PolygonService();
         }
 
         public async Task InitializeAsync()
@@ -57,9 +61,24 @@ namespace Server
         {
             var initPlatforms = new List<RenderObject>()
             {
-                new RenderObject() { Static = true, Position = new Vector_2(-0.5f, -0.5f), Size = new Vector_2(5.0f, 0.1f) },
-                new RenderObject() { Static = true, Position = new Vector_2(-0.8f, -0.8f), Size = new Vector_2(1.0f, 0.1f) },
-                new RenderObject() { Static = true, Position = new Vector_2(0f, -0.6f), Size = new Vector_2(1.0f, 0.1f) }
+                new RenderObject(_polygonService.CreateRectangle(), PrimitiveType.Triangles) 
+                { 
+                    Static = true, 
+                    Position = new Vector_2(-0.5f, -0.5f), 
+                    Size = new Vector_2(5.0f, 0.1f) 
+                },
+                new RenderObject(_polygonService.CreateRectangle(), PrimitiveType.Triangles) 
+                { 
+                    Static = true, 
+                    Position = new Vector_2(-0.8f, -0.8f), 
+                    Size = new Vector_2(1.0f, 0.1f) 
+                },
+                new RenderObject(_polygonService.CreateRectangle(), PrimitiveType.Triangles) 
+                { 
+                    Static = true, 
+                    Position = new Vector_2(0f, -0.6f), 
+                    Size = new Vector_2(1.0f, 0.1f) 
+                }
             };
 
             _gameContext.MapObjects.AddRange(initPlatforms);
@@ -130,7 +149,16 @@ namespace Server
         {
 
             var player = new Player();
-            var obj = player.CreateRenderObject();
+            var obj = new RenderObject(_polygonService.CreateTriangle(), PrimitiveType.Triangles)
+            {
+                Position = new Vector_2(0, 0),
+                Size = new Vector_2(0.2f, 0.2f),
+                Speed = new Vector_2(4f, 4f),
+                Id = Guid.NewGuid(),
+                Color = ColorDefinitions.White,
+            };
+
+            player.RenderObjectId = obj.Id;
 
             _physics.ColisionEvents.Add(obj.Id, (renderObject, bot) =>
             {
@@ -147,11 +175,10 @@ namespace Server
         }
         private void CreatePlatform(Vector_2 position, Vector_2 size)
         {
-            var platform = new RenderObject()
+            var platform = new RenderObject(_polygonService.CreateCircle(), PrimitiveType.TriangleFan)
             {
                 Position = position,
-                Size = size,
-                EntityShape = EntityShape.Circle,
+                Size = size
             };
 
             _gameContext.MapObjects.Add(platform);

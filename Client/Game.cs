@@ -8,8 +8,8 @@ using Kingdom_of_Creation.Dtos;
 using Client.Context.Camera.Implements;
 using Client.Extensions;
 using Kingdom_of_Creation.Entities.Implements;
-using Kingdom_of_Creation.Services.RenderObjectService.Factories;
 using Client.Services;
+using Kingdom_of_Creation.Services.PolygonService.Implements;
 
 namespace Client
 {
@@ -17,8 +17,8 @@ namespace Client
     {
         private readonly CameraContext _cameraContext;
         private readonly GameContext _gameContext;
-        private readonly RenderObjectServiceFactory _renderObjectServiceFactory;
         private readonly RenderService _renderService;
+        private readonly PolygonService _polygonService;
 
         public Game(int width, int height, string title) : base(GameWindowSettings.Default, new NativeWindowSettings() { Size = (width, height), Title = title })
         {
@@ -26,8 +26,8 @@ namespace Client
 
             _cameraContext = new CameraContext(width, height, new Vector_2(0, 0), 0.3f, false);
             _gameContext = new GameContext();
-            _renderObjectServiceFactory = new RenderObjectServiceFactory();
             _renderService = new RenderService();
+            _polygonService = new PolygonService();
         }
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
@@ -73,7 +73,7 @@ namespace Client
             _cameraContext.UpdateWindowSize(e.Width, e.Height);
         }
         protected override void OnRenderFrame(FrameEventArgs e)
-        {;
+        {
             base.OnRenderFrame(e);
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
@@ -81,27 +81,23 @@ namespace Client
 
             foreach (var obj in _gameContext.MapObjects)
             {
-                var renderObjectService = _renderObjectServiceFactory.GetRenderService(obj);
-
                 _renderService.Draw(
-                    renderObjectService.GetVertices(obj),
+                    obj.GetTransformedVertices(),
                     obj.Color,
-                    renderObjectService.GetPrimitiveType()
+                    obj.PrimitiveType
                 );
             }
 
             if (_gameContext.IsDrawingPlatform && _gameContext.TempPlatform != null)
             {
-                var renderObjectService = _renderObjectServiceFactory.GetRenderService(_gameContext.TempPlatform);
-
                 Vector_2 currentWorldPos = _cameraContext.ScreenToWorld(new Vector_2(MouseState.X, MouseState.Y));
 
                 _gameContext.TempPlatform.CalculatePlatformGeometry(_gameContext.PlataformToAddedPosition, currentWorldPos);
                
                 _renderService.Draw(
-                    renderObjectService.GetVertices(_gameContext.TempPlatform),
+                    _gameContext.TempPlatform.GetTransformedVertices(),
                     _gameContext.TempPlatform.Color,
-                    renderObjectService.GetPrimitiveType()
+                    _gameContext.TempPlatform.PrimitiveType
                 );
             }
 
@@ -175,13 +171,12 @@ namespace Client
                     normalizedPos.Y + _cameraContext.CameraOffset.Y
                 );
                 _gameContext.IsDrawingPlatform = true;
-                _gameContext.TempPlatform = new RenderObject() {
+                _gameContext.TempPlatform = new RenderObject(_polygonService.CreateRectangle(),PrimitiveType.Triangles) {
                     Position = _gameContext.PlataformToAddedPosition, 
                     Size = new Vector_2(), 
                     Color = new Color_4(0.5f, 0.5f, 0.5f, 0.5f)
                 };
 
-                var renderObjectService = _renderObjectServiceFactory.GetRenderService(_gameContext.TempPlatform);
             }
         }
         protected override void OnMouseUp(MouseButtonEventArgs e)

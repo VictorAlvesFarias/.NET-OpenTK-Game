@@ -5,11 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Kingdom_of_Creation.Services.RenderObjectService.Abstract
+namespace Kingdom_of_Creation.Extensions
 {
-    public class RenderObjectServiceAbstract
+    public static class Vector_2Extensions
     {
-        public virtual IEnumerable<Vector_2> GetAxes(List<Vector_2> vertices)
+        public static IEnumerable<Vector_2> GetAxes(this List<Vector_2> vertices)
         {
             for (int i = 0; i < vertices.Count; i++)
             {
@@ -21,14 +21,14 @@ namespace Kingdom_of_Creation.Services.RenderObjectService.Abstract
                 yield return new Vector_2(normal.X / length, normal.Y / length);
             }
         }
-        public (float min, float max) Project(List<Vector_2> vertices, Vector_2 axis)
+        public static (float min, float max) Project(this List<Vector_2> vertices, Vector_2 vert)
         {
-            float min = vertices[0].Dot( axis);
+            float min = vertices[0].Dot(vert);
             float max = min;
 
             foreach (var v in vertices)
             {
-                float proj = v.Dot(axis);
+                float proj = v.Dot(vert);
                 if (proj < min) min = proj;
                 if (proj > max) max = proj;
             }
