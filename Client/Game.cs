@@ -10,6 +10,7 @@ using Client.Extensions;
 using Kingdom_of_Creation.Entities.Implements;
 using Client.Services;
 using Kingdom_of_Creation.Services.PolygonService.Implements;
+using System.Diagnostics;
 
 namespace Client
 {
@@ -19,6 +20,19 @@ namespace Client
         private readonly GameContext _gameContext;
         private readonly RenderService _renderService;
         private readonly PolygonService _polygonService;
+
+        // FPS tracking
+        private int _frameCount = 0;
+        private double _lastFpsUpdate = 0;
+        private double _currentFps = 0;
+        private readonly Stopwatch _fpsStopwatch = Stopwatch.StartNew();
+
+        // Ping tracking
+        private readonly Stopwatch _pingStopwatch = Stopwatch.StartNew();
+        private double _lastPingUpdate = 0;
+        private double _currentPing = 0;
+        private bool _pingSent = false;
+        private double _serverTps = 0;
 
         public Game(int width, int height, string title) : base(GameWindowSettings.Default, new NativeWindowSettings() { Size = (width, height), Title = title })
         {
@@ -44,18 +58,54 @@ namespace Client
 
             _cameraContext.UpdateProjectionMatrix();
 
-            Program._udpClient.On<Player>("onConnectionOpened", data =>
+            Program._udpClient.On<Player>("updatePlayer", data =>
             {
-                _gameContext.ConnectedPlayers.Add(data);
-                _gameContext.PlayerObject = _gameContext.ConnectedPlayers.First(e=> e.Id == data.Id);
+                var result = _gameContext.ConnectedPlayers.FirstOrDefault(e => e.Id == data.Id);
+
+                if (result is null)
+                {
+                    _gameContext.ConnectedPlayers.Add(data);
+                }
+                else
+                {
+                    result.UpdateFrom(data);
+                }
             });
-            Program._udpClient.On<List<Player>>("updatePlayers", data =>
+            Program._udpClient.On<RenderObject>("updateObject", data =>
+            {
+                var result = _gameContext.MapObjects.FirstOrDefault(e => e.Id == data.Id);
+
+                if (result is null)
+                {
+                    _gameContext.MapObjects.Add(data);
+                }
+                else
+                {
+                    result.UpdateFrom(data);
+                }
+            });
+            Program._udpClient.On<List<RenderObject>>("loadObjects", data =>
+            {
+                _gameContext.MapObjects = data;
+            });
+            Program._udpClient.On<List<Player>>("loadPlayers", data =>
             {
                 _gameContext.ConnectedPlayers = data;
             });
-            Program._udpClient.On<List<RenderObject>>("updateMap", data =>
+            Program._udpClient.On<Player>("setPlayer", data =>
             {
-                _gameContext.MapObjects = data;
+                _gameContext.PlayerObject = data;
+            });
+
+            // Ping handler
+            Program._udpClient.On<PongResponse>("pong", data =>
+            {
+                if (_pingSent)
+                {
+                    _currentPing = _pingStopwatch.ElapsedMilliseconds;
+                    _serverTps = data.ServerTps;
+                    _pingSent = false;
+                }
             });
 
             Program._udpClient.Connect("127.0.0.1", 25565);
@@ -76,10 +126,23 @@ namespace Client
         {
             base.OnRenderFrame(e);
 
+            // Calculate FPS
+            _frameCount++;
+            double currentTime = _fpsStopwatch.ElapsedMilliseconds;
+            
+            if (currentTime - _lastFpsUpdate >= 1000) // Update every second
+            {
+                _currentFps = _frameCount * 1000.0 / (currentTime - _lastFpsUpdate);
+                _frameCount = 0;
+                _lastFpsUpdate = currentTime;
+                
+                DisplayPerformanceInfo();
+            }
+
             GL.Clear(ClearBufferMask.ColorBufferBit);
             Program.GetShader().Use();
 
-            foreach (var obj in _gameContext.MapObjects)
+            foreach (var obj in _gameContext.MapObjects.ToList())
             {
                 _renderService.Draw(
                     obj.GetTransformedVertices(),
@@ -106,6 +169,17 @@ namespace Client
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             base.OnUpdateFrame(args);
+
+            // Send ping every 0.5 seconds
+            double currentTime = _pingStopwatch.ElapsedMilliseconds;
+            if (currentTime - _lastPingUpdate >= 500 && !_pingSent) // Send ping every 0.5 seconds
+            {
+                _pingStopwatch.Restart();
+                _pingSent = true;
+                _lastPingUpdate = currentTime;
+                
+                Program._udpClient.SendAsync(TcpMessage.FromObject("ping", "ping"));
+            }
 
             if (_gameContext.PlayerObject == null) return;
 
@@ -171,9 +245,10 @@ namespace Client
                     normalizedPos.Y + _cameraContext.CameraOffset.Y
                 );
                 _gameContext.IsDrawingPlatform = true;
-                _gameContext.TempPlatform = new RenderObject(_polygonService.CreateRectangle(),PrimitiveType.Triangles) {
-                    Position = _gameContext.PlataformToAddedPosition, 
-                    Size = new Vector_2(), 
+                _gameContext.TempPlatform = new RenderObject(_polygonService.CreateRectangle(), PrimitiveType.Triangles) {
+                    Position = _gameContext.PlataformToAddedPosition,
+                    Static = true,
+                    Size = new Vector_2(),
                     Color = new Color_4(0.5f, 0.5f, 0.5f, 0.5f)
                 };
 
@@ -204,6 +279,14 @@ namespace Client
             };
 
             Program._udpClient.SendAsync(TcpMessage.FromObject("movement", movementEvent));
+        }
+
+        private void DisplayPerformanceInfo()
+        {
+            Console.SetCursorPosition(0, 0);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Write($"FPS: {_currentFps:F1} | Ping: {_currentPing:F0}ms | Server TPS: {_serverTps:F1}    ");
+            Console.ResetColor();
         }
     }
 }

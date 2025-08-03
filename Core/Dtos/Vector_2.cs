@@ -1,11 +1,12 @@
 ﻿namespace Kingdom_of_Creation.Dtos
 {
-    public class Vector_2
+    public struct Vector_2
     {
         public float X { get; set; }
         public float Y { get; set; }
 
-        public Vector_2() {
+        public Vector_2()
+        {
             X = 0;
             Y = 0;
         }
@@ -51,6 +52,16 @@
             return new Vector_2(a.X / scalar, a.Y / scalar);
         }
 
+        public static bool operator ==(Vector_2 a, Vector_2 b)
+        {
+            return a.X == b.X && a.Y == b.Y;
+        }
+
+        public static bool operator !=(Vector_2 a, Vector_2 b)
+        {
+            return !(a == b);
+        }
+
         public float Length()
         {
             return MathF.Sqrt(X * X + Y * Y);
@@ -76,7 +87,7 @@
         public override bool Equals(object obj)
         {
             if (obj is not Vector_2 other) return false;
-            return X == other.X && Y == other.Y;
+            return this == other;
         }
 
         public override int GetHashCode()

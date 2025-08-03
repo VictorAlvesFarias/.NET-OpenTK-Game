@@ -63,23 +63,27 @@ namespace Client.Context.Camera.Implements
             float bottomThreshold = Height * CameraFollowThreshold;
             float topThreshold = Height * (1 - CameraFollowThreshold);
 
+            var cameraOffset = CameraOffset;
+
             if (playerScreenPos.X < leftThreshold)
             {
-                CameraOffset.X -= (leftThreshold - playerScreenPos.X) / Width * aspectRatio * 2;
+                cameraOffset.X -= (leftThreshold - playerScreenPos.X) / Width * aspectRatio * 2;
             }
             else if (playerScreenPos.X > rightThreshold)
             {
-                CameraOffset.X += (playerScreenPos.X - rightThreshold) / Width * aspectRatio * 2;
+                cameraOffset.X += (playerScreenPos.X - rightThreshold) / Width * aspectRatio * 2;
             }
 
             if (playerScreenPos.Y < bottomThreshold)
             {
-                CameraOffset.Y -= (bottomThreshold - playerScreenPos.Y) / Height * 2;
+                cameraOffset.Y -= (bottomThreshold - playerScreenPos.Y) / Height * 2;
             }
             else if (playerScreenPos.Y > topThreshold)
             {
-                CameraOffset.Y += (playerScreenPos.Y - topThreshold) / Height * 2;
+                cameraOffset.Y += (playerScreenPos.Y - topThreshold) / Height * 2;
             }
+
+            CameraOffset = cameraOffset;
 
             UpdateProjectionMatrix();
         }

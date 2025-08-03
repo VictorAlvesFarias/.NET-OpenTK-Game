@@ -17,7 +17,7 @@ namespace Client.Services
         public virtual void Draw(float[] vertices, Color_4 color, PrimitiveType primitive)
         {
             UpdateBuffers(vertices);
-            Program.GetShader().SetColor4("objectColor", color ?? ColorDefinitions.White);
+            Program.GetShader().SetColor4("objectColor", color);
             GL.BindVertexArray(_vertexArrayObject);
             GL.DrawArrays(primitive, 0, vertices.Length / 3);
         }

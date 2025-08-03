@@ -12,8 +12,8 @@ namespace Client.Extensions
                 Math.Abs(currentWorldPos.Y - startWorldPos.Y)
             );
 
-            size.X = Math.Max(size.X, 0.1f);
-            size.Y = Math.Max(size.Y, 0.1f);
+            size.X = Math.Max(size.X, 0.01f);
+            size.Y = Math.Max(size.Y, 0.01f);
 
             Vector_2 position = new Vector_2(
                 Math.Min(startWorldPos.X, currentWorldPos.X),
